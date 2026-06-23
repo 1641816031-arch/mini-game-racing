@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小游戏竞速</title>
+
+<link rel="stylesheet" href="./style.css">
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="module">
+import Minesweeper, { meta as minesweeperMeta } from './games/minesweeper.js';
+import Maze, { meta as mazeMeta } from './games/maze.js';
+import Sudoku, { meta as sudokuMeta } from './games/sudoku.js';
+import Game2048, { meta as game2048Meta } from './games/game2048.js';
+import Puzzle, { meta as puzzleMeta } from './games/puzzle.js';
+import Pipe, { meta as pipeMeta } from './games/pipe.js';
+import ColorSwitch, { meta as colorSwitchMeta } from './games/colorSwitch.js';
+import LightsOut, { meta as lightsOutMeta } from './games/lightsOut.js';
+import Schulte, { meta as schulteMeta } from './games/schulte.js';
+import FlappyBird, { meta as flappyBirdMeta } from './games/flappyBird.js';
+import Tetris, { meta as tetrisMeta } from './games/tetris.js';
+import Game24, { meta as game24Meta } from './games/game24.js';
+import Memory, { meta as memoryMeta } from './games/memory.js';
+
+const {useState,useEffect,useRef} = React;
+
+/* ===== 工具 ===== */
+function shuffle(a){ return a.sort(()=>Math.random()-0.5); }
+
+function format(ms){
+  let t = Math.floor(ms / 10);
+  let m = String(Math.floor(t / 6000)).padStart(2,'0');
+  let s = String(Math.floor((t % 6000) / 100)).padStart(2,'0');
+  let cs = String(t % 100).padStart(2,'0');
+  return `${m}:${s}.${cs}`;
+}
+
+function dispatchKey(key){
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+  window.dispatchEvent(event);
+}
+
+/* ===== 计时器 ===== */
+function useTimer(run){
+  const [t,setT]=useState(0);
+  const startRef = useRef(0);
+  const rafRef = useRef(null);
+
+  useEffect(()=>{
+    cancelAnimationFrame(rafRef.current);
+    if(run){
+      startRef.current = performance.now();
+      function loop(){
+        setT(performance.now() - startRef.current);
+        rafRef.current = requestAnimationFrame(loop);
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }else{
+      setT(0);
+    }
+    return ()=>cancelAnimationFrame(rafRef.current);
+  },[run]);
+
+  return t;
+}
+
+/* ===== 排行榜 ===== */
+function saveScore(name, time){
+  if(
+    !name ||
+    !name.trim() ||
+    typeof time !== "number" ||
+    isNaN(time) ||
+    time <= 0
+  ){
+    console.warn("拦截脏数据：", name, time);
+    return;
+  }
+
+  let list = JSON.parse(localStorage.getItem("rank")||"[]");
+  const index = list.findIndex(item=>item.name === name);
+
+  if(index !== -1){
+    if(time < list[index].time){
+      list[index].time = time;
+    }
+  }else{
+    list.push({name,time});
+  }
+
+  list.sort((a,b)=>a.time - b.time);
+  list = list.slice(0,10);
+  localStorage.setItem("rank",JSON.stringify(list));
+}
+
+function Leaderboard(){
+  const [list,setList]=useState([]);
+  useEffect(()=>{
+    setList(JSON.parse(localStorage.getItem("rank")||"[]"));
+  },[]);
+
+  return React.createElement("div",{className:"leaderboard"},
+    React.createElement("h3",null,"🏆 排行榜"),
+    list.map((item,i)=>
+      React.createElement("div",{key:i},
+        `${i+1}. ${item.name} - ${format(item.time)}`
+      )
+    )
+  );
+}
+
+/* ===== 移动端虚拟控制 ===== */
+function MobileControls({ type, gameName }){
+  if(type === 'none') return null;
+
+  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  if(!isTouch) return null;
+
+  if(type === 'action'){
+    const label = gameName === 'Flappy Bird' ? '跳跃' : '切换';
+    return React.createElement('div', { className: 'mobile-controls' },
+      React.createElement('button', {
+        className: 'mobile-btn mobile-action',
+        onTouchStart: (e) => { e.preventDefault(); dispatchKey(' '); }
+      }, label)
+    );
+  }
+
+  if(type === 'direction'){
+    return React.createElement('div', { className: 'mobile-controls' },
+      React.createElement('div', { className: 'swipe-hint' },
+        '👆 滑动控制方向'
+      )
+    );
+  }
+
+  return null;
+}
+
+/* ===== 游戏注册表 ===== */
+const GAMES = [
+  minesweeperMeta,
+  mazeMeta,
+  sudokuMeta,
+  game2048Meta,
+  puzzleMeta,
+  pipeMeta,
+  colorSwitchMeta,
+  lightsOutMeta,
+  schulteMeta,
+  flappyBirdMeta,
+  tetrisMeta,
+  game24Meta,
+  memoryMeta
+];
+const MAP = Object.fromEntries(GAMES.map(g => [g.name, g.component]));
+const DRAW_COUNT = 6;
+const ALL_NAMES = Object.keys(MAP);
+
+function App(){
+  const [finalTime, setFinalTime] = useState(null);
+  const [order,setOrder]=useState(() => shuffle([...ALL_NAMES]).slice(0, DRAW_COUNT));
+  const [start,setStart]=useState(false);
+  const [showNameInput,setShowNameInput] = useState(false);
+  const [playerName,setPlayerName] = useState("");
+  const [idx,setIdx]=useState(0);
+  const [toast,setToast]=useState(false);
+  const [finished,setFinished]=useState(false);
+  const [failed,setFailed]=useState(false);
+
+  const time = useTimer(start && !finished && !failed);
+
+  function begin(){
+    setStart(true);
+    setIdx(0);
+    setFinished(false);
+    setFailed(false);
+  }
+
+  function next(){
+    setToast(true);
+    setTimeout(()=>{
+      setToast(false);
+      if(idx === DRAW_COUNT - 1){
+        setFinalTime(time);
+        setFinished(true);
+        setTimeout(()=>{
+          setShowNameInput(true);
+        },300);
+      }else{
+        setIdx(i=>i+1);
+      }
+    },600);
+  }
+
+  function handleFail(){
+    console.log("失败触发了");
+    setFailed(true);
+  }
+
+  function restart(reshuffle){
+    setFailed(false);
+    setFinished(false);
+    setFinalTime(null);
+    setShowNameInput(false);
+    setPlayerName("");
+    if(reshuffle){
+      setOrder([...shuffle([...ALL_NAMES]).slice(0, DRAW_COUNT)]);
+    }
+    setIdx(0);
+    setStart(false);
+  }
+
+  const swipeRef = useRef({ startX: 0, startY: 0, lastTrigger: 0 });
+
+  function handleTouchStart(e) {
+    if (e.touches.length !== 1) return;
+    swipeRef.current.startX = e.touches[0].clientX;
+    swipeRef.current.startY = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e) {
+    if (e.changedTouches.length !== 1) return;
+    const dx = e.changedTouches[0].clientX - swipeRef.current.startX;
+    const dy = e.changedTouches[0].clientY - swipeRef.current.startY;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    if (Math.max(absDx, absDy) < 40) return;
+    const now = Date.now();
+    if (now - swipeRef.current.lastTrigger < 200) return;
+    swipeRef.current.lastTrigger = now;
+    if (controlType === 'direction') {
+      e.preventDefault();
+    }
+    if (absDx > absDy) {
+      dispatchKey(dx > 0 ? 'ArrowRight' : 'ArrowLeft');
+    } else {
+      dispatchKey(dy > 0 ? 'ArrowDown' : 'ArrowUp');
+    }
+  }
+
+  const Game = MAP[order[idx]];
+  const scale = Math.min(window.innerWidth/900,1);
+  const currentMeta = GAMES.find(g => g.name === order[idx]);
+  const controlType = currentMeta?.controlType || 'none';
+
+  return React.createElement("div",{className:"app"},
+
+    /* Header */
+    React.createElement("div",{className:"header"},
+      React.createElement("div",{className:"title"},"小游戏竞速"),
+      React.createElement("div",{className:"timer"},format(time)),
+      React.createElement("div",null,`${Math.min(idx+1, DRAW_COUNT)}/${DRAW_COUNT}`)
+    ),
+
+    /* Progress */
+    React.createElement("div",{className:"progress"},
+      React.createElement("div",{className:"bar",style:{width:(idx/DRAW_COUNT*100)+"%"}})
+    ),
+
+    /* 全局控制 */
+    start && React.createElement("div",null,
+      React.createElement("button",{className:"btn", onClick:()=>restart(false)},"重新游戏"),
+      React.createElement("button",{className:"btn", onClick:()=>restart(true)},"重随游戏")
+    ),
+
+    /* 开始前 */
+    !start && React.createElement("div",null,
+      React.createElement("button",{className:"btn", onClick:()=>setOrder([...shuffle([...ALL_NAMES]).slice(0, DRAW_COUNT)])},"随机"),
+      React.createElement("button",{className:"btn", onClick:begin},"开始"),
+      React.createElement("div",null,order.join(" → "))
+    ),
+
+    /* 游戏区 */
+    start && !finished &&
+      React.createElement("div",{
+        className:"stage-wrapper",
+        onTouchStart: handleTouchStart,
+        onTouchEnd: handleTouchEnd
+      },
+        React.createElement("div",{style:{transform:`scale(${scale})`}},
+          React.createElement(Game,{
+            difficulty:(idx+1)/DRAW_COUNT,
+            onComplete:next,
+            onFail:handleFail
+          })
+        )
+      ),
+
+    /* 移动端虚拟控制 */
+    start && !finished && React.createElement(MobileControls, { type: controlType, gameName: order[idx] }),
+
+    /* 完成 */
+    finished &&
+      React.createElement("div",{className:"result"},
+        "🎉 完成：" + format(finalTime ?? time),
+        React.createElement("div",null,
+          React.createElement("button",{className:"btn",onClick:()=>restart(true)},"再来一局")
+        )
+      ),
+
+    showNameInput && React.createElement("div",{className:"modal"},
+      React.createElement("div",{className:"modal-box"},
+        React.createElement("div",null,"🎉 输入你的名字"),
+        React.createElement("input",{
+          value:playerName,
+          onChange:e=>setPlayerName(e.target.value),
+          placeholder:"你的名字"
+        }),
+        React.createElement("button",{
+          className:"btn",
+          onClick:()=>{
+            if(!playerName.trim()) return;
+            saveScore(playerName, finalTime);
+            setShowNameInput(false);
+          }
+        },"确认")
+      )
+    ),
+
+    /* 排行榜 */
+    React.createElement(Leaderboard,null),
+
+    /* 通关提示 */
+    toast && React.createElement("div",{className:"toast"},"✔ 通关"),
+
+    /* 失败弹窗 */
+    failed && React.createElement("div",{
+      style:{
+        position:"fixed",
+        top:0,left:0,right:0,bottom:0,
+        background:"rgba(0,0,0,0.5)",
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        zIndex:999
+      }
+    },
+      React.createElement("div",{
+        style:{
+          background:"#fff",
+          padding:30,
+          borderRadius:12,
+          textAlign:"center",
+          width:300
+        }
+      },
+        React.createElement("h2",null,"游戏失败"),
+        React.createElement("div",{style:{marginTop:20}},
+          React.createElement("button",{className:"btn",onClick:()=>restart(false)},"重新开始"),
+          React.createElement("button",{className:"btn",style:{marginLeft:10},onClick:()=>restart(true)},"重随开始")
+        )
+      )
+    )
+
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root"))
+  .render(React.createElement(App));
+
+</script>
+</body>
+</html>

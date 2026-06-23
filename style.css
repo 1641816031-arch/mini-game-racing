@@ -1,0 +1,237 @@
+body{
+  margin:0;
+  font-family:system-ui;
+  background:linear-gradient(135deg,#f0f9ff,#f8fafc);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app{
+  max-width:1100px;
+  margin:auto;
+  padding:20px;
+}
+
+/* Header */
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+
+.title{
+  font-size:22px;
+  font-weight:bold;
+  color:#1e3a8a;
+}
+
+.timer{
+  font-size:20px;
+  color:#2563eb;
+  font-weight:bold;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: 1px;
+  transition: all 0.05s linear;
+}
+
+/* 进度条 */
+.progress{
+  margin-bottom: 10px;
+  height:10px;
+  background:#e5e7eb;
+  border-radius:5px;
+  overflow:hidden;
+}
+.bar{
+  height:100%;
+  background:linear-gradient(90deg,#3b82f6,#06b6d4);
+  transition:width 0.3s;
+}
+
+/* 按钮 */
+.btn{
+  padding:8px 16px;
+  margin-right: 12px;
+  border:none;
+  border-radius:8px;
+  background:#3b82f6;
+  color:#fff;
+  cursor:pointer;
+  transition:0.2s;
+  touch-action: manipulation;
+}
+.btn:hover{
+  background:#2563eb;
+  transform:scale(1.05);
+}
+.btn:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+  transform:none;
+}
+
+/* 游戏区 */
+.stage-wrapper{
+  height:600px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+}
+
+/* toast */
+.toast{
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#22c55e;
+  color:#fff;
+  padding:10px 20px;
+  border-radius:8px;
+  animation:fade 0.5s;
+  z-index:1000;
+}
+
+@keyframes fade{
+  from{opacity:0; transform:translate(-50%,-20px);}
+  to{opacity:1; transform:translate(-50%,0);}
+}
+
+/* 排行榜 */
+.leaderboard{
+  margin-top:20px;
+  background:#fff;
+  padding:10px;
+  border-radius:10px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.05);
+}
+
+/* ===== 结果与模态框 ===== */
+.result{
+  text-align:center;
+  font-size:24px;
+  font-weight:bold;
+  color:#1e3a8a;
+  padding:40px 0;
+}
+
+.modal{
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.5);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:999;
+}
+.modal-box{
+  background:#fff;
+  padding:30px;
+  border-radius:12px;
+  text-align:center;
+  width:300px;
+}
+.modal-box input{
+  width:100%;
+  padding:10px;
+  margin:12px 0;
+  border:1px solid #ddd;
+  border-radius:8px;
+  font-size:16px;
+  box-sizing:border-box;
+}
+
+/* ===== 移动端虚拟控制 ===== */
+.mobile-controls{
+  position:fixed;
+  bottom:20px;
+  left:0;
+  right:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:50;
+  pointer-events:none;
+}
+.mobile-controls > *{
+  pointer-events:auto;
+}
+
+.mobile-btn{
+  background:rgba(59,130,246,0.85);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-size:22px;
+  font-weight:bold;
+  cursor:pointer;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action: manipulation;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.mobile-btn:active{
+  background:rgba(37,99,235,0.95);
+  transform:scale(0.95);
+}
+
+.mobile-action{
+  width:100px;
+  height:100px;
+  border-radius:50%;
+  font-size:18px;
+}
+
+.swipe-hint{
+  background:rgba(0,0,0,0.6);
+  color:#fff;
+  padding:6px 16px;
+  border-radius:20px;
+  font-size:14px;
+  pointer-events:none;
+  user-select:none;
+}
+
+/* ===== 移动端响应式 ===== */
+@media (max-width:600px){
+  .app{
+    padding:12px;
+  }
+  .title{
+    font-size:18px;
+  }
+  .timer{
+    font-size:16px;
+  }
+  .stage-wrapper{
+    height:420px;
+  }
+  .btn{
+    padding:10px 14px;
+    font-size:14px;
+    margin-right:8px;
+  }
+  .mobile-action{
+    width:90px;
+    height:90px;
+  }
+  .modal-box{
+    width:260px;
+    padding:20px;
+  }
+}
+
+@media (max-width:400px){
+  .stage-wrapper{
+    height:360px;
+  }
+  .mobile-action{
+    width:80px;
+    height:80px;
+    font-size:16px;
+  }
+}
