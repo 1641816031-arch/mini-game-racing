@@ -10,6 +10,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [playerColor, setPlayerColor] = useState(0);
+  const [resetKey, setResetKey] = useState(0);
 
   const canvasRef = useRef();
   const animRef = useRef();
@@ -18,6 +19,12 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
   const gameOverRef = useRef(false);
 
   useEffect(() => {
+    gameOverRef.current = false;
+    scoreRef.current = 0;
+    setScore(0);
+    playerColorRef.current = 0;
+    setPlayerColor(0);
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     canvas.width = 400;
@@ -26,6 +33,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
     let obstacles = [];
     let nextSpawn = 0;
     let lastTime = 0;
+    let respawnTimer = 0;
 
     function spawnObstacle() {
       obstacles.push({
@@ -36,6 +44,17 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       });
     }
 
+    function resetGame() {
+      gameOverRef.current = false;
+      scoreRef.current = 0;
+      setScore(0);
+      playerColorRef.current = 0;
+      setPlayerColor(0);
+      obstacles = [];
+      nextSpawn = 0;
+      respawnTimer = 30;
+    }
+
     function loop(timestamp) {
       if (gameOverRef.current) return;
 
@@ -43,6 +62,18 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       lastTime = timestamp;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (respawnTimer > 0) {
+        respawnTimer--;
+        ctx.fillStyle = '#111';
+        ctx.font = 'bold 20px system-ui';
+        ctx.fillText('碰撞！已重置', 120, 250);
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 16px system-ui';
+        ctx.fillText(`${scoreRef.current}/${target}`, 20, 30);
+        animRef.current = requestAnimationFrame(loop);
+        return;
+      }
 
       const px = canvas.width / 2;
       const py = canvas.height - 60;
@@ -87,9 +118,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
               return;
             }
           } else {
-            gameOverRef.current = true;
-            setGameOver(true);
-            onFail && onFail();
+            resetGame();
             return;
           }
         }
@@ -106,7 +135,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
     animRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animRef.current);
-  }, [difficulty]);
+  }, [difficulty, resetKey]);
 
   function switchColor() {
     if (gameOverRef.current) return;

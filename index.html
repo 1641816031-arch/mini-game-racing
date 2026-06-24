@@ -224,6 +224,15 @@ function App(){
     if (e.touches.length !== 1) return;
     swipeRef.current.startX = e.touches[0].clientX;
     swipeRef.current.startY = e.touches[0].clientY;
+    if (controlType === 'direction') {
+      e.preventDefault();
+    }
+  }
+
+  function handleTouchMove(e) {
+    if (controlType === 'direction') {
+      e.preventDefault();
+    }
   }
 
   function handleTouchEnd(e) {
@@ -283,6 +292,7 @@ function App(){
       React.createElement("div",{
         className:"stage-wrapper",
         onTouchStart: handleTouchStart,
+        onTouchMove: handleTouchMove,
         onTouchEnd: handleTouchEnd
       },
         React.createElement("div",{style:{transform:`scale(${scale})`}},
