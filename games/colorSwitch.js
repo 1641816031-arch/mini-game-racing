@@ -9,7 +9,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
   const [score, setScore] = useState(0);
   const [playerColor, setPlayerColor] = useState(0);
-  const [message, setMessage] = useState('');
+  const [flash, setFlash] = useState(0);
 
   const canvasRef = useRef();
   const gameRef = useRef(null);
@@ -26,16 +26,16 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       obstacles: [],
       nextSpawn: 0,
       lastTime: 0,
-      respawnTimer: 0,
       score: 0,
       playerColor: 0,
-      gameOver: false
+      gameOver: false,
+      flashTimer: 0
     };
     gameRef.current = game;
 
     setScore(0);
     setPlayerColor(0);
-    setMessage('');
+    setFlash(0);
 
     function spawnObstacle() {
       game.obstacles.push({
@@ -48,14 +48,14 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
     function resetGame() {
       game.obstacles = [];
-      game.nextSpawn = 0;
+      game.nextSpawn = 0;        // 下一帧立即生成
       game.score = 0;
       game.playerColor = 0;
-      game.respawnTimer = 30;
+      game.flashTimer = 12;      // 0.2 秒红色闪烁
       setScore(0);
       setPlayerColor(0);
-      setMessage('碰撞！已重置');
-      setTimeout(() => setMessage(''), 800);
+      setFlash(1);
+      setTimeout(() => setFlash(0), 300);
     }
 
     function loop(timestamp) {
@@ -66,19 +66,12 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // 分数
       ctx.fillStyle = '#111';
       ctx.font = 'bold 16px system-ui';
       ctx.fillText(`${game.score}/${target}`, 20, 30);
 
-      if (game.respawnTimer > 0) {
-        game.respawnTimer--;
-        ctx.fillStyle = '#ef4444';
-        ctx.font = 'bold 24px system-ui';
-        ctx.fillText('碰撞！已重置', 90, 250);
-        rafRef.current = requestAnimationFrame(loop);
-        return;
-      }
-
+      // 玩家球
       const px = canvas.width / 2;
       const py = canvas.height - 60;
 
@@ -94,12 +87,21 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       ctx.font = 'bold 14px system-ui';
       ctx.fillText(COLOR_NAMES[game.playerColor], px - 10, py + 5);
 
+      // 碰撞闪烁
+      if (game.flashTimer > 0) {
+        game.flashTimer--;
+        ctx.fillStyle = 'rgba(239,68,68,0.25)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // 生成障碍物
       game.nextSpawn -= dt;
       if (game.nextSpawn <= 0) {
         spawnObstacle();
-        game.nextSpawn = 60 + Math.random() * 40;
+        game.nextSpawn = 45 + Math.random() * 30;  // 0.75~1.25 秒
       }
 
+      // 更新和绘制障碍物
       let collided = false;
       for (let i = 0; i < game.obstacles.length; i++) {
         const obs = game.obstacles[i];
@@ -147,7 +149,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
   function switchColor() {
     const game = gameRef.current;
-    if (!game || game.gameOver || game.respawnTimer > 0) return;
+    if (!game || game.gameOver) return;
     game.playerColor = (game.playerColor + 1) % 4;
     setPlayerColor(game.playerColor);
   }
@@ -168,10 +170,15 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
     React.createElement('canvas', {
       ref: canvasRef,
       onClick: switchColor,
-      style: { border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer' }
+      style: {
+        border: flash ? '2px solid #ef4444' : '1px solid #ddd',
+        borderRadius: 8,
+        cursor: 'pointer'
+      }
     }),
-    message && React.createElement('div', { style: { color: 'red', marginTop: 8, fontWeight: 'bold' } }, message),
-    React.createElement('div', { style: { marginTop: 8, color: '#666', fontSize: 14 } }, '点击屏幕或按空格切换颜色，匹配下落的颜色条')
+    React.createElement('div', { style: { marginTop: 8, color: '#666', fontSize: 14 } },
+      '点击屏幕或按空格切换颜色，匹配下落的颜色条'
+    )
   );
 }
 
