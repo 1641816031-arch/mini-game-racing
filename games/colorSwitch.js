@@ -14,6 +14,11 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
   const canvasRef = useRef();
   const gameRef = useRef(null);
   const rafRef = useRef(null);
+  const onCompleteRef = useRef(onComplete);
+  const onFailRef = useRef(onFail);
+
+  onCompleteRef.current = onComplete;
+  onFailRef.current = onFail;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,10 +53,10 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
     function resetGame() {
       game.obstacles = [];
-      game.nextSpawn = 0;        // 下一帧立即生成
+      game.nextSpawn = 0;
       game.score = 0;
       game.playerColor = 0;
-      game.flashTimer = 12;      // 0.2 秒红色闪烁
+      game.flashTimer = 12;
       setScore(0);
       setPlayerColor(0);
       setFlash(1);
@@ -98,7 +103,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       game.nextSpawn -= dt;
       if (game.nextSpawn <= 0) {
         spawnObstacle();
-        game.nextSpawn = 45 + Math.random() * 30;  // 0.75~1.25 秒
+        game.nextSpawn = 45 + Math.random() * 30;
       }
 
       // 更新和绘制障碍物
@@ -120,7 +125,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
             setScore(game.score);
             if (game.score >= target) {
               game.gameOver = true;
-              onComplete && onComplete();
+              onCompleteRef.current && onCompleteRef.current();
               return;
             }
           } else {
@@ -145,7 +150,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       game.gameOver = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [difficulty, target, speed, onComplete]);
+  }, [difficulty, target, speed]);
 
   function switchColor() {
     const game = gameRef.current;
