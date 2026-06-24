@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 
 const COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308'];
 const COLOR_NAMES = ['红', '蓝', '绿', '黄'];
@@ -8,35 +8,43 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
   const speed = 1.5 + difficulty * 2;
 
   const [score, setScore] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
   const [playerColor, setPlayerColor] = useState(0);
-  const [resetKey, setResetKey] = useState(0);
+  const [message, setMessage] = useState('');
 
   const canvasRef = useRef();
-  const animRef = useRef();
-  const playerColorRef = useRef(0);
-  const scoreRef = useRef(0);
-  const gameOverRef = useRef(false);
+  const animRef = useRef(null);
+  const stateRef = useRef({
+    obstacles: [],
+    nextSpawn: 0,
+    lastTime: 0,
+    respawnTimer: 0,
+    score: 0,
+    playerColor: 0,
+    gameOver: false
+  });
 
-  useEffect(() => {
-    gameOverRef.current = false;
-    scoreRef.current = 0;
-    setScore(0);
-    playerColorRef.current = 0;
-    setPlayerColor(0);
-
+  const startGame = useCallback(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     canvas.width = 400;
     canvas.height = 500;
 
-    let obstacles = [];
-    let nextSpawn = 0;
-    let lastTime = 0;
-    let respawnTimer = 0;
+    const state = stateRef.current;
+    state.obstacles = [];
+    state.nextSpawn = 0;
+    state.lastTime = 0;
+    state.respawnTimer = 0;
+    state.score = 0;
+    state.playerColor = 0;
+    state.gameOver = false;
+
+    setScore(0);
+    setPlayerColor(0);
+    setMessage('');
 
     function spawnObstacle() {
-      obstacles.push({
+      state.obstacles.push({
         y: -40,
         color: Math.floor(Math.random() * 4),
         height: 40,
@@ -45,32 +53,37 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
     }
 
     function resetGame() {
-      gameOverRef.current = false;
-      scoreRef.current = 0;
+      state.obstacles = [];
+      state.nextSpawn = 0;
+      state.score = 0;
+      state.playerColor = 0;
+      state.respawnTimer = 30;
       setScore(0);
-      playerColorRef.current = 0;
       setPlayerColor(0);
-      obstacles = [];
-      nextSpawn = 0;
-      respawnTimer = 30;
+      setMessage('碰撞！已重置');
+      setTimeout(() => setMessage(''), 800);
     }
 
     function loop(timestamp) {
-      if (gameOverRef.current) return;
+      const state = stateRef.current;
+      if (state.gameOver) return;
 
-      const dt = Math.min((timestamp - lastTime) / 16.67, 3);
-      lastTime = timestamp;
+      const dt = Math.min((timestamp - state.lastTime) / 16.67, 3);
+      state.lastTime = timestamp;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (respawnTimer > 0) {
-        respawnTimer--;
-        ctx.fillStyle = '#111';
-        ctx.font = 'bold 20px system-ui';
-        ctx.fillText('碰撞！已重置', 120, 250);
+      // 分数
+      ctx.fillStyle = '#111';
+      ctx.font = 'bold 16px system-ui';
+      ctx.fillText(`${state.score}/${target}`, 20, 30);
+
+      // 重置保护期
+      if (state.respawnTimer > 0) {
+        state.respawnTimer--;
         ctx.fillStyle = '#ef4444';
-        ctx.font = 'bold 16px system-ui';
-        ctx.fillText(`${scoreRef.current}/${target}`, 20, 30);
+        ctx.font = 'bold 24px system-ui';
+        ctx.fillText('碰撞！已重置', 90, 250);
         animRef.current = requestAnimationFrame(loop);
         return;
       }
@@ -78,7 +91,8 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       const px = canvas.width / 2;
       const py = canvas.height - 60;
 
-      ctx.fillStyle = COLORS[playerColorRef.current];
+      // 玩家球
+      ctx.fillStyle = COLORS[state.playerColor];
       ctx.beginPath();
       ctx.arc(px, py, 20, 0, Math.PI * 2);
       ctx.fill();
@@ -88,60 +102,68 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
 
       ctx.fillStyle = '#111';
       ctx.font = 'bold 14px system-ui';
-      ctx.fillText(COLOR_NAMES[playerColorRef.current], px - 10, py + 5);
+      ctx.fillText(COLOR_NAMES[state.playerColor], px - 10, py + 5);
 
-      nextSpawn -= dt;
-      if (nextSpawn <= 0) {
+      // 生成障碍物
+      state.nextSpawn -= dt;
+      if (state.nextSpawn <= 0) {
         spawnObstacle();
-        nextSpawn = 60 + Math.random() * 40;
+        state.nextSpawn = 60 + Math.random() * 40;
       }
 
-      for (let obs of obstacles) {
+      // 更新和绘制障碍物
+      let collided = false;
+      for (let obs of state.obstacles) {
         obs.y += speed * dt;
 
         ctx.fillStyle = COLORS[obs.color];
         ctx.fillRect(50, obs.y, 300, 30);
-
         ctx.strokeStyle = 'rgba(0,0,0,0.2)';
         ctx.lineWidth = 2;
         ctx.strokeRect(50, obs.y, 300, 30);
 
         if (!obs.passed && obs.y + 30 >= py - 20 && obs.y <= py + 20) {
-          if (obs.color === playerColorRef.current) {
+          if (obs.color === state.playerColor) {
             obs.passed = true;
-            scoreRef.current++;
-            setScore(scoreRef.current);
-            if (scoreRef.current >= target) {
-              gameOverRef.current = true;
-              setGameOver(true);
+            state.score++;
+            setScore(state.score);
+            if (state.score >= target) {
+              state.gameOver = true;
               onComplete && onComplete();
               return;
             }
           } else {
-            resetGame();
-            return;
+            collided = true;
+            break;
           }
         }
       }
 
-      obstacles = obstacles.filter(o => o.y < canvas.height + 50);
+      state.obstacles = state.obstacles.filter(o => o.y < canvas.height + 50);
 
-      ctx.fillStyle = '#111';
-      ctx.font = 'bold 16px system-ui';
-      ctx.fillText(`${scoreRef.current}/${target}`, 20, 30);
+      if (collided) {
+        resetGame();
+      }
 
       animRef.current = requestAnimationFrame(loop);
     }
 
+    if (animRef.current) cancelAnimationFrame(animRef.current);
     animRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animRef.current);
-  }, [difficulty, resetKey]);
+  }, [difficulty, target, speed, onComplete]);
+
+  useEffect(() => {
+    startGame();
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, [startGame]);
 
   function switchColor() {
-    if (gameOverRef.current) return;
-    const next = (playerColorRef.current + 1) % 4;
-    playerColorRef.current = next;
-    setPlayerColor(next);
+    const state = stateRef.current;
+    if (state.gameOver || state.respawnTimer > 0) return;
+    state.playerColor = (state.playerColor + 1) % 4;
+    setPlayerColor(state.playerColor);
   }
 
   useEffect(() => {
@@ -162,6 +184,7 @@ export default function ColorSwitch({ difficulty = 0.5, onComplete, onFail }) {
       onClick: switchColor,
       style: { border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer' }
     }),
+    message && React.createElement('div', { style: { color: 'red', marginTop: 8, fontWeight: 'bold' } }, message),
     React.createElement('div', { style: { marginTop: 8, color: '#666', fontSize: 14 } }, '点击屏幕或按空格切换颜色，匹配下落的颜色条')
   );
 }
