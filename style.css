@@ -205,39 +205,82 @@ body{
 /* ===== 移动端响应式 ===== */
 @media (max-width:600px){
   .app{
-    padding:12px;
+    padding:8px;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    box-sizing:border-box;
+    overflow:hidden;
+  }
+  .header{
+    margin-bottom:6px;
+    flex-shrink:0;
   }
   .title{
-    font-size:18px;
-  }
-  .timer{
     font-size:16px;
   }
+  .timer{
+    font-size:14px;
+  }
+  .progress{
+    margin-bottom:6px;
+    flex-shrink:0;
+  }
   .stage-wrapper{
-    height:520px;
+    height:auto;
+    flex:1;
+    min-height:0;
+  }
+  .controls-bar,.pre-game{
+    flex-shrink:0;
+    margin-bottom:4px;
+  }
+  .order-preview{
+    font-size:12px;
+    margin-top:4px;
   }
   .btn{
-    padding:10px 14px;
-    font-size:14px;
-    margin-right:8px;
+    padding:6px 12px;
+    font-size:13px;
+    margin-right:6px;
+  }
+  .mobile-controls{
+    position:static;
+    margin-top:4px;
+    flex-shrink:0;
   }
   .mobile-action{
-    width:90px;
-    height:90px;
+    width:70px;
+    height:70px;
+    font-size:14px;
+  }
+  .swipe-hint{
+    padding:4px 12px;
+    font-size:12px;
+  }
+  .leaderboard{
+    display:none;
   }
   .modal-box{
     width:260px;
     padding:20px;
   }
+  .result{
+    padding:20px 0;
+    font-size:18px;
+  }
 }
 
 @media (max-width:400px){
-  .stage-wrapper{
-    height:480px;
+  .title{
+    font-size:14px;
+  }
+  .timer{
+    font-size:12px;
   }
   .mobile-action{
-    width:80px;
-    height:80px;
-    font-size:16px;
+    width:60px;
+    height:60px;
+    font-size:13px;
   }
 }
